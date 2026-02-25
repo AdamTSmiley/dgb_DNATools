@@ -1,0 +1,68 @@
+# =============================================================================
+# CSV INPUT SETTINGS
+# Set these to match your actual column names.
+# =============================================================================
+
+csv_id_column: "id"              # Column containing sequence identifiers
+csv_sequence_column: "sequence"  # Column containing protein or DNA sequences
+
+# =============================================================================
+# CODON OPTIMIZATION
+# Species strings:
+#   "e_coli"       - Escherichia coli
+#   "s_cerevisiae" - Saccharomyces cerevisiae (baker's yeast)
+#   "h_sapiens"    - Homo sapiens
+#   "b_subtilis"   - Bacillus subtilis
+#   "c_elegans"    - Caenorhabditis elegans
+#   "d_melanogaster" - Drosophila melanogaster
+#   "m_musculus"   - Mus musculus (mouse)
+#   "r_norvegicus" - Rattus norvegicus (rat)
+# =============================================================================
+
+codon_optimize:
+  enabled: true
+  species: "e_coli"
+
+# =============================================================================
+# GC CONTENT ENFORCEMENT
+# Constrains GC content within a sliding window across the sequence.
+# =============================================================================
+
+enforce_gc_content:
+  enabled: true
+  min: 0.4
+  max: 0.6
+  window: 100
+
+# =============================================================================
+# RESTRICTION SITE AVOIDANCE
+# Common sites to avoid:
+#   BsaI_site, BsmBI_site, BbsI_site, BamHI_site, EcoRI_site,
+#   NheI_site, XhoI_site, HindIII_site, SalI_site, NotI_site
+# =============================================================================
+
+avoid_patterns:
+  enabled: true
+  sites:
+    - "BsaI_site"
+    - "BsmBI_site"
+    - "BbsI_site"
+
+# =============================================================================
+# HAIRPIN AVOIDANCE
+# Removes sequences that could form secondary structures.
+# =============================================================================
+
+avoid_hairpins:
+  enabled: true
+  stem_size: 20
+  window: 200
+
+# =============================================================================
+# ADVANCED: UNIQUE KMERS
+# Ensures all k-mers in the sequence are unique.
+# =============================================================================
+
+uniquify_kmers:
+  enabled: true
+  k: 12
