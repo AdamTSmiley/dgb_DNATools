@@ -132,6 +132,13 @@ def optimize_sequence(seq_id, dna_seq, config):
 
     constraints = build_constraints(config)
     objectives = build_objectives(config)
+    
+    add_stop = config.get("stop_codon", {})
+    if add_stop.get("enabled", False):
+        stop = add_stop.get("codon", "TAA")
+        print(f"Adding {stop} stop codon.")
+    else:
+        stop = ""
 
     if not objectives:
         print(f"[{seq_id}] WARNING: No objectives defined. Check your config.")
@@ -158,7 +165,7 @@ def optimize_sequence(seq_id, dna_seq, config):
         return {
             "id": seq_id,
             "original_sequence": dna_seq,
-            "optimized_sequence": problem.sequence,
+            "optimized_sequence": problem.sequence + stop,
             "original_length": len(dna_seq),
             "optimized_length": len(problem.sequence),
             "constraints_pass": problem.all_constraints_pass(),
@@ -207,7 +214,7 @@ def main(args):
 
     print(f"Loaded {len(raw_sequences)} sequences.\n")
 
-    # optimize
+    # seq optimize
     print("[Optimization] Starting...")
     results = []
 

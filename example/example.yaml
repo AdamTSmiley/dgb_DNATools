@@ -7,6 +7,15 @@ csv_id_column: "id"              # Column containing sequence identifiers
 csv_sequence_column: "sequence"  # Column containing protein or DNA sequences
 
 # =============================================================================
+# ADD STOP CODON
+# Settings to add stop codon -- TAA > TAG > TGA
+# =============================================================================
+
+stop_codon:
+  enabled: false
+  codon: "TAA"
+
+# =============================================================================
 # CODON OPTIMIZATION
 # Species strings:
 #   "e_coli"       - Escherichia coli
