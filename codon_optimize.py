@@ -108,7 +108,7 @@ def build_objectives(config):
     if codon_config.get("enabled", True):
         species = codon_config.get("species", "e_coli")
         objectives.append(CodonOptimize(species=species))
-        print(f"Codon optimizing for '{species}'")
+        print(f"Codon optimizing for '{species}'.")
 
     kmer_config = config.get("uniquify_kmers", {})
     if kmer_config.get("enabled", False):
@@ -175,7 +175,7 @@ def optimize_sequence(seq_id, dna_seq, config):
         }
 
     except Exception as e:
-        print(f"[{seq_id}] ERROR during optimization: {e}")
+        print(f"[{seq_id}] ERROR during optimization: {e}.")
         return None
 
 # Writing output
@@ -187,7 +187,7 @@ def write_output(results, output_dir, output_name):
 
     df = pd.DataFrame(results)
     df.to_csv(output_path, index=False)
-    print(f"\n[Done] Results written to: {output_path}")
+    print(f"\n[Done] Results written to: {output_path}.")
     print(f"{len(results)} sequences optimized successfully.")
     return output_path
 
@@ -195,12 +195,12 @@ def write_output(results, output_dir, output_name):
 
 def main(args):
     # load config
-    print(f"\n[Config] Loading: {args.config}")
+    print(f"\n[Config] Loading: {args.config}.")
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
     # load seqs
-    print(f"[Input] Loading: {args.input}")
+    print(f"[Input] Loading: {args.input}.")
     ext = os.path.splitext(args.input)[1].lower()
 
     if ext in (".fasta", ".fa", ".faa"):
@@ -208,8 +208,8 @@ def main(args):
     elif ext == ".csv":
         raw_sequences = parse_csv(args.input, config)
     else:
-        print(f"[ERROR] Unrecognized file extension: '{ext}'")
-        print("Supported formats: .fasta, .fa, .faa, .csv")
+        print(f"[ERROR] Unrecognized file extension: '{ext}'.")
+        print("Supported formats: .fasta, .fa, .faa, .csv.")
         sys.exit(1)
 
     print(f"Loaded {len(raw_sequences)} sequences.\n")
