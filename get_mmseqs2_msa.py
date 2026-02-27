@@ -58,7 +58,7 @@ def runMMseqs2(
             n += 1
             
         res = requests.post(f'{host_url}/{submission_endpoint}',
-                            data={'q': query, 'mode': mode}) 
+                            data={'q': query, 'mode': mode}, verify=False) 
         try:
             out = res.json()
         except ValueError:
@@ -68,7 +68,7 @@ def runMMseqs2(
 
     def status(ID: int) -> Dict[str, str]:
         """ Obtains the status of a submitted query. """
-        res = requests.get(f'{host_url}/ticket/{ID}')
+        res = requests.get(f'{host_url}/ticket/{ID}', verify=False)
         try:
             out = res.json()
         except ValueError:
@@ -78,7 +78,7 @@ def runMMseqs2(
 
     def download(ID: int, path: str) -> None:
         """ Downloads the completed MMseqs2 query. """
-        res = requests.get(f'{host_url}/result/download/{ID}')
+        res = requests.get(f'{host_url}/result/download/{ID}', verify=False)
         with open(path, 'wb') as out:
             out.write(res.content)
 
@@ -299,11 +299,11 @@ if __name__ == "__main__":
         help="Name of the directory in which to output the template mmCIFs. Defaults to './mmcif_dir'"
     )
     parser.add_argument(
-        "--use_env", type=bool, default=True,
+        "--use_env", action='store_true', default=True,
         help="Include the environmental sequence databases in search. Defaults to True"
     )
     parser.add_argument(
-        "--use_pairing", type=bool, default=False,
+        "--use_pairing", action='store_true', default=False,
         help="Attempt to pair sequences from same species. Defaults to False."
     )
     args = parser.parse_args()
