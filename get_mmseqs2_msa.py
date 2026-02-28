@@ -5,7 +5,6 @@ import time
 import random
 import tarfile
 from typing import Sequence, Dict, Tuple, Union
-
 from Bio import SeqIO
 
 
