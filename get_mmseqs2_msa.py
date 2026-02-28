@@ -5,7 +5,6 @@ import time
 import random
 import tarfile
 from typing import Dict
-
 from Bio import SeqIO
 
 
@@ -15,8 +14,7 @@ def runMMseqs2(
         use_filter: bool = True,
         host_url: str = 'https://api.colabfold.com'
         ) -> str:
-    """ Computes an MSA for a single sequence by querying MMseqs2 API.
-    Always searches environmental databases (env). """
+    """ Computes an MSA for a single sequence by querying MMseqs2 API."""
 
     def submit(seq: str, mode: str, N: int = 101) -> Dict[str, str]:
         """ Submits a query sequence to MMseqs2 API. """
@@ -44,10 +42,8 @@ def runMMseqs2(
         with open(path, 'wb') as out:
             out.write(res.content)
 
-    # Set the mode for MMseqs2 (always use env databases).
     mode = 'env' if use_filter else 'env-nofilter'
 
-    # Set up output path.
     os.makedirs(out_path, exist_ok=True)
     tar_gz_file = os.path.join(out_path, 'out.tar.gz')
     N, REDO = 101, True
@@ -87,10 +83,9 @@ def runMMseqs2(
                                 'your input is a valid protein sequence. If '
                                 'error persists, please try again in an hour.')
 
-        # Download results
         download(ID, tar_gz_file)
 
-    # Selectively extract only the two .a3m files we want.
+    # extract UniRef and env alignment files
     a3m_names = ['uniref.a3m', 'bfd.mgnify30.metaeuk30.smag30.a3m']
     a3m_files = [os.path.join(out_path, name) for name in a3m_names]
 
@@ -101,15 +96,13 @@ def runMMseqs2(
                 member.name = os.path.basename(member.name)
                 tar_gz.extract(member, path=out_path)
 
-    # Gather .a3m lines, skipping the query header in subsequent files
-    # to avoid duplicate >101 headers in the merged output.
+    # Gather .a3m lines
     a3m_lines = []
     for i, a3m_file in enumerate(a3m_files):
-        skipped_header = (i == 0)  # first file keeps its header; subsequent files skip theirs
+        skipped_header = (i == 0)
         with open(a3m_file, 'r') as f:
             for line in f:
                 if len(line) > 0:
-                    # Replace NULL values
                     if '\x00' in line:
                         line = line.replace('\x00', '')
                     if not skipped_header and line.startswith('>'):
