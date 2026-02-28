@@ -165,13 +165,7 @@ def optimize_sequence(seq_id, dna_seq, config):
         return {
             "id": seq_id,
             "original_sequence": dna_seq,
-            "optimized_sequence": problem.sequence + stop,
-            "original_length": len(dna_seq),
-            "optimized_length": len(problem.sequence),
-            "constraints_pass": problem.all_constraints_pass(),
-            # ---------------------------------------------------------------
-            # Extra columns in the future
-            # ---------------------------------------------------------------
+            "optimized_sequence": problem.sequence + stop
         }
 
     except Exception as e:
