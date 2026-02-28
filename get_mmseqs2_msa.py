@@ -5,6 +5,7 @@ import time
 import random
 import tarfile
 from typing import Dict
+
 from Bio import SeqIO
 
 
@@ -100,15 +101,20 @@ def runMMseqs2(
                 member.name = os.path.basename(member.name)
                 tar_gz.extract(member, path=out_path)
 
-    # Gather .a3m lines.
+    # Gather .a3m lines, skipping the query header in subsequent files
+    # to avoid duplicate >101 headers in the merged output.
     a3m_lines = []
-    for a3m_file in a3m_files:
+    for i, a3m_file in enumerate(a3m_files):
+        skipped_header = (i == 0)  # first file keeps its header; subsequent files skip theirs
         with open(a3m_file, 'r') as f:
             for line in f:
                 if len(line) > 0:
                     # Replace NULL values
                     if '\x00' in line:
                         line = line.replace('\x00', '')
+                    if not skipped_header and line.startswith('>'):
+                        skipped_header = True
+                        continue
                     a3m_lines.append(line)
 
     return ''.join(a3m_lines)
@@ -125,6 +131,7 @@ def main(args: argparse.Namespace):
     seq = str(records[0].seq)
 
     tag_dir = os.path.join(args.alignment_dir, tag)
+    os.makedirs(tag_dir, exist_ok=True)
     a3m = runMMseqs2(
         out_path=tag_dir,
         sequence=seq,
