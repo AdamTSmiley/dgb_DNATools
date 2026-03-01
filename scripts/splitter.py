@@ -434,7 +434,7 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python design_fragments.py sequences.fasta --upstream_site AATG --downstream_site TTAG --primers primers.csv --ligation_data FileS04_T4_18h_37C.csv
+  python design_fragments.py sequences.fasta --upstream_site AATG --downstream_site TTAG
   python design_fragments.py sequences.csv --upstream_site AATG --downstream_site TTAG --primers primers.csv --ligation_data FileS04_T4_18h_37C.csv --output_dir ./results
         """
     )
