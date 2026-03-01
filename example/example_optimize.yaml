@@ -55,7 +55,10 @@ avoid_patterns:
   sites:
     - "BsaI_site"
     - "BsmBI_site"
-    - "BbsI_site"
+    - "XhoI_site"
+    - "BamHI_site"
+    - "EcoRI_site"
+    - "NheI_site"
 
 # =============================================================================
 # HAIRPIN AVOIDANCE
