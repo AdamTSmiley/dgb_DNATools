@@ -1,13 +1,8 @@
 """
-Design two-fragment Golden Gate assemblies from DNA sequences.
+Design Golden Gate assemblies from DNA sequences.
 
-Takes sequences in the 250-500bp range and fragments them into two oligos
-bridged by an optimal shared Golden Gate site. Fidelity prediction is adapted
-from OMEGA (Freschlin et al., 2025 -- https://github.com/RomeroLab/omega).
-
-Oligo structure:
-  Fragment A: fwd_primer - GGTCTCA - 5'_bbsite - seq[0:split+4] - AGAGACC - rc(rev_primer)
-  Fragment B: fwd_primer - GGTCTCA - seq[split:] - 3'_bbsite  - AGAGACC - rc(rev_primer)
+Takes sequences and fragments them into oligos bridged by an optimal shared Golden Gate site. 
+Fidelity prediction is adapted from OMEGA (Freschlin et al., 2025 -- https://github.com/RomeroLab/omega).
 """
 
 import os
@@ -20,6 +15,8 @@ import numpy as np
 import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
+from math import ceil, exp
+import string
 
 # BsaI info
 ENZYME_PREFIX   = 'GGTCTCA' # BsaI site 'GGTCTC' + 'A' padding base
@@ -28,9 +25,13 @@ ENZYME_OVERHEAD = len(ENZYME_PREFIX) + len(ENZYME_SUFFIX)  # 14bp per oligo
 OVERHANG_SIZE   = 4
 
 # Seq info
-SEQ_MIN_LEN  = 300
-SEQ_MAX_LEN  = 500
-OLIGO_MAX_LEN = 300
+OLIGO_MAX_LEN = 350
+PRIMER_LEN = 20
+FIXED_OVERHEAD = PRIMER_LEN * 2 + ENZYME_OVERHEAD
+BACKBONE_OVERHANG = 4
+MAX_END_CODING = OLIGO_MAX_LEN - FIXED_OVERHEAD - BACKBONE_OVERHANG
+MAX_INT_CODING = OLIGO_MAX_LEN - FIXED_OVERHEAD
+SEQ_MIN_LEN = 50
 
 # Remove palindromic sites (per OMEGA Oligos)
 PALINDROMIC_SITES = {
@@ -117,23 +118,38 @@ def load_primers(filepath: str) -> list:
 
 # Seq filtering
 def filter_sequences(sequences: list) -> list:
-    """Discard sequences outside the 250-500bp range."""
+    """Skip sequences that are shorter than minimum length."""
     kept, skipped = [], []
     for seq_id, seq in sequences:
-        if SEQ_MIN_LEN <= len(seq) <= SEQ_MAX_LEN:
+        if len(seq) >= SEQ_MIN_LEN:
             kept.append((seq_id, seq))
         else:
             skipped.append((seq_id, len(seq)))
-
+    
     for seq_id, length in skipped:
-        print(f"  [SKIPPED] {seq_id}: {length} bp -- outside {SEQ_MIN_LEN}-{SEQ_MAX_LEN} bp range.")
+        print(f"    [SKIPPED] {seq_id}: {length} bp -- shorter than cutoff (minimum {SEQ_MIN_LEN} bp).")
 
     return kept
+
+
+def estimate_n_fragments(seq_len: int) -> int:
+    """Calculate the minimum number of fragments needed to encode a sequence."""
+    if seq_len <= MAX_END_CODING:
+        return 1
+    return ceil(seq_len / MAX_END_CODING)
 
 
 # Backbone gg validation
 def validate_backbone_sites(upstream: str, downstream: str) -> None:
     """Warn if backbone sites may cause assembly issues."""
+    for name, site in [("Upstream", upstream), ("Downstream", downstream)]:
+        if len(site) != 4:
+            print(f"[ERROR] {name} site '{site}' is not 4bp.")
+            sys.exit(1)
+        if not all(c in 'ATCG' for c in site):
+            print(f"[ERROR] {name} site '{site}' contains invalid characters.")
+            sys.exit(1)
+    
     downstream_rc = str(Seq(downstream).reverse_complement())
 
     if upstream in PALINDROMIC_SITES:
@@ -170,61 +186,65 @@ def get_disallowed_sites(upstream: str, downstream: str) -> set:
     return disallowed
 
 
-def find_best_split(
+def find_split_position(
     seq: str,
     upstream: str,
     downstream: str,
-    fwd_primer: str,
-    rev_primer: str,
     ligation_data: pd.DataFrame,
     disallowed_sites: set
 ) -> tuple | None:
-    """Find the optimal position for the shared internal GG site.
+    """Finds good positions to split large fragments into subfragments."""
+    n_frags = estimate_n_fragments(len(seq))
 
-    Enumerates all valid positions, scores each using Potapov ligation data
-    (3-site system: upstream, shared, downstream), and returns the highest-fidelity
-    position. Ties are broken by proximity to the sequence centre.
+    if n_frags == 1:
+        fidelity = predict_fidelity([upstream, downstream], ligation_data)
+        
+        return ([], [], fidelity)
+    
+    if n_frags > 1:
+        ideal_positions = [round(len(seq) * i / n_frags) for i in range(1, n_frags)]
 
-    Returns (split_position, shared_ggsite, fidelity) or None if no valid position.
-    """
-    n = len(seq)
-    center = (n - OVERHANG_SIZE) / 2.0
+        n = len(seq)
+        placed_positions = []
+        placed_sites = []
 
-    # Oligo length constraints:
-    # Oligo A: fwd(L) + prefix(7) + upstream(4) + seq[0:p+4] + suffix(7) + rev(L)
-    #   total = len(fwd) + len(rev) + p + 22  ≤  OLIGO_MAX_LEN
-    #   → p ≤ OLIGO_MAX_LEN - len(fwd) - len(rev) - 22
-    #
-    # Oligo B: fwd(L) + prefix(7) + seq[p:] + downstream(4) + suffix(7) + rev(L)
-    #   total = len(fwd) + len(rev) + (n - p) + 18  ≤  OLIGO_MAX_LEN
-    #   → p ≥ len(fwd) + len(rev) + n - OLIGO_MAX_LEN + 18
+        for j, ideal_pos in enumerate(ideal_positions):
+            ideal_gap = n / n_frags
 
-    primer_len = len(fwd_primer) + len(rev_primer)
-    p_max = OLIGO_MAX_LEN - primer_len - 22
-    p_min = primer_len + n - OLIGO_MAX_LEN + 18
+            # Window bounds from oligo length constraints
+            left_bound = placed_positions[-1] + OVERHANG_SIZE if placed_positions else 0
+            right_bound = (placed_positions[-1] + MAX_INT_CODING if placed_positions else MAX_END_CODING) - OVERHANG_SIZE
+            
+            half_gap = int(ideal_gap // 2)
+            p_min = max(left_bound, ideal_pos - half_gap)
+            p_max = min(right_bound, ideal_pos + half_gap)
+            
+            if j == len(ideal_positions) - 1:
+                p_min = max(p_min, n - MAX_END_CODING)
+            
+            scored = []
+            for p in range(p_min, p_max + 1):
+                ggsite = seq[p:p + OVERHANG_SIZE]
+                if ggsite in disallowed_sites:
+                    continue
+                all_sites = [upstream] + placed_sites + [ggsite] + [downstream]
+                fidelity = predict_fidelity(all_sites, ligation_data)
+                gap = p if j == 0 else p - placed_positions[-1]
+                deviation = abs(gap - ideal_gap) / ideal_gap
+                score = fidelity * exp(-5 * deviation ** 2)
+                scored.append((p, ggsite, score, fidelity))
 
-    p_min = max(0, p_min)
-    p_max = min(n - OVERHANG_SIZE, p_max)
+            if not scored:
+                return None
 
-    if p_min > p_max:
-        return None
+            scored.sort(key=lambda x: -x[2])
+            best_p, best_site, _, _ = scored[0]
+            placed_positions.append(best_p)
+            placed_sites.append(best_site)
 
-    scored = []
-    for p in range(p_min, p_max + 1):
-        ggsite = seq[p:p + OVERHANG_SIZE]
-        if ggsite in disallowed_sites:
-            continue
-        fidelity = predict_fidelity([upstream, ggsite, downstream], ligation_data)
-        dist_from_center = abs(p - center)
-        scored.append((p, ggsite, fidelity, dist_from_center))
-
-    if not scored:
-        return None
-
-    # Best fidelity first w/ ties broken by closest to center
-    scored.sort(key=lambda x: (-x[2], x[3]))
-    p, ggsite, fidelity, _ = scored[0]
-    return p, ggsite, fidelity
+        all_sites = [upstream] + placed_sites + [downstream]
+        final_fidelity = predict_fidelity(all_sites, ligation_data)
+        return placed_positions, placed_sites, final_fidelity
 
 
 # Oligo builder
@@ -232,28 +252,28 @@ def build_oligos(
     seq: str,
     upstream: str,
     downstream: str,
-    split_pos: int,
+    positions: list,
+    ggsites: list,
     fwd_primer: str,
     rev_primer: str
-) -> tuple:
-    """Build the two orderable oligo sequences.
-
-    Fragment A: fwd - GGTCTCA - upstream_bbsite - seq[0:split+4] - AGAGACC - rc(rev)
-    Fragment B: fwd - GGTCTCA - seq[split:] - downstream_bbsite - AGAGACC - rc(rev)
-
-    The shared 4bp overhang (seq[split:split+4]) is present in both fragments
-    and becomes the scarless ligation junction.
-    """
-    p = split_pos
+) -> list:
+    """Build orderable oligos from a fragmented sequence. """
+    
     rev_rc = str(Seq(rev_primer).reverse_complement())
 
-    coding_a = upstream + seq[:p + OVERHANG_SIZE]
-    coding_b = seq[p:] + downstream
+    if not positions:
+        single_fragment = upstream + seq + downstream
+        oligos = [fwd_primer + ENZYME_PREFIX + single_fragment + ENZYME_SUFFIX + rev_rc]
+    
+    else:
+        first_frag = upstream + seq[0:positions[0] + OVERHANG_SIZE]
+        middle_fragments = [seq[positions[j-1]:positions[j] + OVERHANG_SIZE] for j in range(1, len(positions))]
+        last_fragment = seq[positions[-1]:] + downstream
 
-    oligo_a = fwd_primer + ENZYME_PREFIX + coding_a + ENZYME_SUFFIX + rev_rc
-    oligo_b = fwd_primer + ENZYME_PREFIX + coding_b + ENZYME_SUFFIX + rev_rc
-
-    return oligo_a, oligo_b
+        all_fragments = [first_frag] + middle_fragments + [last_fragment]
+        oligos = [fwd_primer + ENZYME_PREFIX + fragment + ENZYME_SUFFIX + rev_rc for fragment in all_fragments]
+    
+    return oligos
 
 
 # Primer pair 
@@ -294,8 +314,8 @@ def write_outputs(results: list, output_dir: str) -> None:
     # Order
     order_rows = []
     for r in results:
-        order_rows.append({'name': f"{r['id']}_A", 'sequence': r['oligo_a']})
-        order_rows.append({'name': f"{r['id']}_B", 'sequence': r['oligo_b']})
+        for oligo, letter in zip(r['oligos'], string.ascii_uppercase):
+            order_rows.append({'name': f"{r['id']}_{letter}", 'sequence': oligo})
 
     order_path = os.path.join(output_dir, 'order.csv')
     pd.DataFrame(order_rows).to_csv(order_path, index=False)
@@ -305,13 +325,13 @@ def write_outputs(results: list, output_dir: str) -> None:
     fidelity_rows = [{
         'id':                r['id'],
         'sequence_length':   r['sequence_length'],
-        'split_position':    r['split_position'],
-        'shared_ggsite':     r['shared_ggsite'],
+        'n_fragments':    len(r['oligos']),
+        'split_positions': ','.join(str(p) for p in r['positions']),
+        'shared_ggsites':  ','.join(r['ggsites']),
+        'oligo_lengths':   ','.join(str(len(o)) for o in r['oligos']),
         'upstream_bbsite':   r['upstream_bbsite'],
         'downstream_bbsite': r['downstream_bbsite'],
         'fidelity':          round(r['fidelity'], 6),
-        'oligo_a_length':    len(r['oligo_a']),
-        'oligo_b_length':    len(r['oligo_b']),
         'fwd_primer':        r['fwd_primer_name'],
         'rev_primer':        r['rev_primer_name'],
     } for r in results]
@@ -348,7 +368,7 @@ def main(args: argparse.Namespace) -> None:
     print(f"  Loaded {len(raw_sequences)} sequences.")
 
     # Filter by length
-    print(f"[Filter] Keeping sequences between {SEQ_MIN_LEN}-{SEQ_MAX_LEN} bp...")
+    print(f"[Filter] Skipping sequences shorter than {SEQ_MIN_LEN} bp...")
     sequences = filter_sequences(raw_sequences)
     print(f"  {len(sequences)} sequences passed.")
 
@@ -371,12 +391,10 @@ def main(args: argparse.Namespace) -> None:
 
     for (seq_id, seq), (fwd_name, fwd_seq, rev_name, rev_seq) in zip(sequences, primer_assignments):
 
-        result = find_best_split(
+        result = find_split_position(
             seq=seq,
             upstream=upstream,
             downstream=downstream,
-            fwd_primer=fwd_seq,
-            rev_primer=rev_seq,
             ligation_data=ligation_data,
             disallowed_sites=disallowed_sites
         )
@@ -386,30 +404,29 @@ def main(args: argparse.Namespace) -> None:
             failed.append(seq_id)
             continue
 
-        split_pos, shared_ggsite, fidelity = result
+        positions, ggsites, fidelity = result
 
-        oligo_a, oligo_b = build_oligos(
+        oligos = build_oligos(
             seq=seq,
             upstream=upstream,
             downstream=downstream,
-            split_pos=split_pos,
+            positions=positions,
+            ggsites=ggsites,
             fwd_primer=fwd_seq,
             rev_primer=rev_seq
         )
 
-        print(f"  {seq_id}: split @ {split_pos}, shared site = {shared_ggsite}, "
-              f"fidelity = {fidelity:.4f}, oligos = {len(oligo_a)}/{len(oligo_b)} bp")
+        print(f"  {seq_id}: {len(oligos)} fragment(s), sites = {ggsites}, fidelity = {fidelity:.4f}")
 
         results.append({
             'id':                seq_id,
             'sequence_length':   len(seq),
-            'split_position':    split_pos,
-            'shared_ggsite':     shared_ggsite,
+            'positions':         positions,
+            'ggsites':           ggsites,
             'upstream_bbsite':   upstream,
             'downstream_bbsite': downstream,
             'fidelity':          fidelity,
-            'oligo_a':           oligo_a,
-            'oligo_b':           oligo_b,
+            'oligos':            oligos,
             'fwd_primer_name':   fwd_name,
             'rev_primer_name':   rev_name,
         })
