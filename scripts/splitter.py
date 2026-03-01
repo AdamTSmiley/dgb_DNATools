@@ -306,6 +306,17 @@ def assign_primer_pairs(sequences: list, primers: list) -> list:
     return assignments
 
 
+def format_fragment_ranges(seq_len: int, positions: list) -> str:
+    """Format fragment sequence ranges as a human-readable string, e.g. '1-198 | 195-387'."""
+    boundaries = [0] + positions + [seq_len]
+    ranges = []
+    for i in range(len(boundaries) - 1):
+        start = boundaries[i] + 1  # 1-indexed
+        end = boundaries[i+1] + (OVERHANG_SIZE if i < len(positions) else 0)
+        ranges.append(f"{start}-{end}")
+    return ' | '.join(ranges)
+
+
 # Output
 def write_outputs(results: list, output_dir: str) -> None:
     """Write order.csv and fidelity_report.csv."""
@@ -325,10 +336,10 @@ def write_outputs(results: list, output_dir: str) -> None:
     fidelity_rows = [{
         'id':                r['id'],
         'sequence_length':   r['sequence_length'],
-        'n_fragments':    len(r['oligos']),
-        'split_positions': ','.join(str(p) for p in r['positions']),
-        'shared_ggsites':  ','.join(r['ggsites']),
-        'oligo_lengths':   ','.join(str(len(o)) for o in r['oligos']),
+        'n_fragments':       len(r['oligos']),
+        'fragment_ranges':   format_fragment_ranges(r['sequence_length'], r['positions']),
+        'shared_ggsites':    ','.join(r['ggsites']),
+        'oligo_lengths':     ','.join(str(len(o)) for o in r['oligos']),
         'upstream_bbsite':   r['upstream_bbsite'],
         'downstream_bbsite': r['downstream_bbsite'],
         'fidelity':          round(r['fidelity'], 6),
