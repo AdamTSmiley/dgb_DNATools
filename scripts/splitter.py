@@ -39,6 +39,11 @@ PALINDROMIC_SITES = {
     'GATC', 'GTAC', 'CATG', 'CTAG'
 }
 
+# File locations
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_LIGATION_DATA = os.path.join(SCRIPT_DIR, '..', 'ligation_data', 'T4_37C.csv')
+DEFAULT_PRIMERS = os.path.join(SCRIPT_DIR, '..', 'primers', 'primers.csv')
+
 # Fidelity prediction adapted from OMEGA (Freschlin et al., 2025)
 
 def load_ligation_data(filepath: str) -> pd.DataFrame:
@@ -441,9 +446,9 @@ Examples:
                         help="4bp 5' backbone Golden Gate overhang (e.g. AATG)")
     parser.add_argument('--downstream_site', type=str, required=True,
                         help="4bp 3' backbone Golden Gate overhang (e.g. TTAG)")
-    parser.add_argument('--primers', type=str, required=True,
+    parser.add_argument('--primers', type=str, required=False, default=DEFAULT_PRIMERS,
                         help='Primer CSV file (columns: name, sequence)')
-    parser.add_argument('--ligation_data', type=str, required=True,
+    parser.add_argument('--ligation_data', type=str, required=False, default=DEFAULT_LIGATION_DATA,
                         help='Potapov ligation frequency CSV (from OMEGA data/ligation_data/, recommend FileS04_T4_18h_37C.csv)')
 
     # Optional
