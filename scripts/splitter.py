@@ -1,7 +1,7 @@
 """
 Design Golden Gate assemblies from DNA sequences.
 
-Takes sequences and fragments them into oligos bridged by an optimal shared Golden Gate site. 
+Takes sequences and fragments them into oligos bridged by optimal shared Golden Gate sites. 
 Fidelity prediction is adapted from OMEGA (Freschlin et al., 2025 -- https://github.com/RomeroLab/omega).
 """
 
@@ -456,7 +456,7 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=(
-            "Design two-fragment Golden Gate assemblies from DNA sequences. "
+            "Design n-fragment Golden Gate assemblies from DNA sequences. "
             "Fidelity prediction adapted from OMEGA (Freschlin et al., 2025)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
