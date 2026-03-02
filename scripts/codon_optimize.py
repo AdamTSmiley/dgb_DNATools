@@ -277,10 +277,3 @@ Examples:
     args = parser.parse_args()
     main(args)
 
-
-
-
-
-
-
-
