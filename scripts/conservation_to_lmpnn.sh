@@ -10,6 +10,7 @@
 PERCENTILE=50
 CHAIN="A"
 OUTPUT=""
+EXTRA_RESIDUES=""
 
 usage() {
     echo "Usage: $0 -i <conservation.txt> [-p <30|50|70>] [-c <chain>] [-o <output.txt>]"
@@ -18,16 +19,18 @@ usage() {
     echo "  -p  Conservation percentile: 30, 50, or 70 (default: 50)"
     echo "  -c  Chain ID letter for LigandMPNN format (default: A)"
     echo "  -o  Output file path (default: print to terminal)"
+    echo "  -r  Extra residue numbers to fix, space-separated (e.g. '5 18 42')"
     exit 1
 }
 
 # Flags
-while getopts "i:p:c:o:" opt; do
+while getopts "i:p:c:o:r:" opt; do
     case $opt in
         i) INPUT="$OPTARG" ;;
         p) PERCENTILE="$OPTARG" ;;
         c) CHAIN="$OPTARG" ;;
         o) OUTPUT="$OPTARG" ;;
+        r) EXTRA_RESIDUES="$OPTARG" ;;
         *) usage ;;
     esac
 done
@@ -57,10 +60,19 @@ if [ -z "$POSITIONS_LINE" ]; then
     exit 1
 fi
 
-# Reformat
-FIXED_RESIDUES=$(echo "$POSITIONS_LINE" \
+# Extract position numbers from conservation file as a newline-separated list
+CONSERVED_NUMS=$(echo "$POSITIONS_LINE" \
     | tr ',' '\n' \
     | tr -d ' ' \
+    | grep -v '^$')
+
+# Combine with any extra residues the user passed in
+ALL_NUMS=$(printf "%s\n%s" "$CONSERVED_NUMS" "$(echo "$EXTRA_RESIDUES" | tr ' ' '\n')" \
+    | grep -v '^$')
+
+# Then prepend chain letter and collapse back to a space-separated string
+FIXED_RESIDUES=$(echo "$ALL_NUMS" \
+    | sort -un \
     | sed "s/^/${CHAIN}/" \
     | tr '\n' ' ' \
     | sed 's/ $//')
