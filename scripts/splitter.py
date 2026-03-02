@@ -18,10 +18,12 @@ from Bio.Seq import Seq
 from math import ceil, exp
 import string
 
-# BsaI info
-ENZYME_PREFIX   = 'GGTCTCA' # BsaI site 'GGTCTC' + 'A' padding base
-ENZYME_SUFFIX   = 'AGAGACC' # Reverse complement of prefix
-ENZYME_OVERHEAD = len(ENZYME_PREFIX) + len(ENZYME_SUFFIX)  # 14bp per oligo
+# Nuc info
+ENZYME_SITES = {
+    'BsaI':  {'prefix': 'GGTCTCA', 'suffix': 'AGAGACC'},   # GGTCTC + A padding
+    'BsmBI': {'prefix': 'CGTCTCA', 'suffix': 'TGAGACG'},   # CGTCTC + A padding
+}
+ENZYME_OVERHEAD = 14  # 7bp prefix + 7bp suffix, same for both enzymes
 OVERHANG_SIZE   = 4
 
 # Seq info
@@ -256,7 +258,9 @@ def build_oligos(
     positions: list,
     ggsites: list,
     fwd_primer: str,
-    rev_primer: str
+    rev_primer: str,
+    enzyme_prefix: str,
+    enzyme_suffix: str,
 ) -> list:
     """Build orderable oligos from a fragmented sequence. """
     
@@ -264,7 +268,7 @@ def build_oligos(
 
     if not positions:
         single_fragment = upstream + seq + downstream
-        oligos = [fwd_primer + ENZYME_PREFIX + single_fragment + ENZYME_SUFFIX + rev_rc]
+        oligos = [fwd_primer + enzyme_prefix + single_fragment + enzyme_suffix + rev_rc]
     
     else:
         first_frag = upstream + seq[0:positions[0] + OVERHANG_SIZE]
@@ -272,7 +276,7 @@ def build_oligos(
         last_fragment = seq[positions[-1]:] + downstream
 
         all_fragments = [first_frag] + middle_fragments + [last_fragment]
-        oligos = [fwd_primer + ENZYME_PREFIX + fragment + ENZYME_SUFFIX + rev_rc for fragment in all_fragments]
+        oligos = [fwd_primer + enzyme_prefix + fragment + enzyme_suffix + rev_rc for fragment in all_fragments]
     
     return oligos
 
@@ -360,6 +364,14 @@ def main(args: argparse.Namespace) -> None:
     print(f"\n[Setup] Loading ligation data: {args.ligation_data}")
     ligation_data = load_ligation_data(args.ligation_data)
 
+    enzyme = args.enzyme
+    if enzyme not in ENZYME_SITES:
+        print(f"[ERROR] Unknown enzyme '{enzyme}'. Choose from: {list(ENZYME_SITES.keys())}")
+        sys.exit(1)
+    enzyme_prefix = ENZYME_SITES[enzyme]['prefix']
+    enzyme_suffix = ENZYME_SITES[enzyme]['suffix']
+    print(f"[Setup] Enzyme: {enzyme} (prefix: {enzyme_prefix}, suffix: {enzyme_suffix})")
+
     # Validate and prepare backbone sites
     upstream  = args.upstream_site.upper()
     downstream = args.downstream_site.upper()
@@ -425,7 +437,9 @@ def main(args: argparse.Namespace) -> None:
             positions=positions,
             ggsites=ggsites,
             fwd_primer=fwd_seq,
-            rev_primer=rev_seq
+            rev_primer=rev_seq,
+            enzyme_prefix=enzyme_prefix,
+            enzyme_suffix=enzyme_suffix
         )
 
         print(f"  {seq_id}: {len(oligos)} fragment(s), sites = {ggsites}, fidelity = {fidelity:.4f}")
@@ -464,7 +478,7 @@ if __name__ == '__main__':
         epilog="""
 Examples:
   python splitter.py sequences.fasta --upstream_site AATG --downstream_site TTAG
-  python splitter.py sequences.csv --upstream_site AATG --downstream_site TTAG --primers primers.csv --ligation_data FileS04_T4_18h_37C.csv --output_dir ./results
+  python splitter.py sequences.csv --upstream_site AATG --downstream_site TTAG --enzyme BsaI --primers primers.csv --ligation_data FileS04_T4_18h_37C.csv --output_dir ./results
         """
     )
 
@@ -475,12 +489,15 @@ Examples:
                         help="4bp 5' backbone Golden Gate overhang (e.g. AATG)")
     parser.add_argument('--downstream_site', type=str, required=True,
                         help="4bp 3' backbone Golden Gate overhang (e.g. TTAG)")
+    
+    # Optional
+    parser.add_argument('--enzyme', type=str, required=False, default='BsaI',
+                    choices=['BsaI', 'BsmBI'],
+                    help="Type IIS restriction enzyme to use (default: BsaI)")
     parser.add_argument('--primers', type=str, required=False, default=DEFAULT_PRIMERS,
                         help='Primer CSV file (columns: name, sequence)')
     parser.add_argument('--ligation_data', type=str, required=False, default=DEFAULT_LIGATION_DATA,
                         help='Potapov ligation frequency CSV (from OMEGA data/ligation_data/, recommend FileS04_T4_18h_37C.csv)')
-
-    # Optional
     parser.add_argument('--output_dir', type=str, default='./results',
                         help='Output directory (default: ./results)')
     parser.add_argument('--csv_id_column', type=str, default='id',
