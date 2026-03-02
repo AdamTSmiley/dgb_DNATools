@@ -185,6 +185,15 @@ def write_output(results, output_dir, output_name):
     print(f"{len(results)} sequences optimized successfully.")
     return output_path
 
+# Write more output
+
+def write_fasta(results, output_dir, output_name):
+    output_path = os.path.join(output_dir, f"{output_name}.fasta")
+    with open(output_path, "w") as f:
+        for result in results:
+            f.write(f">{result['id']}\n{result['optimized_sequence']}\n")
+    print(f"[Done] FASTA written to: {output_path}.")
+
 # Main function
 
 def main(args):
@@ -227,6 +236,7 @@ def main(args):
 
     # write out
     write_output(results, args.output_dir, args.output_name)
+    write_fasta(results, args.output_dir, args.output_name)
 
 # Entry point
 
