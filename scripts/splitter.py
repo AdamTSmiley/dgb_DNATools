@@ -165,7 +165,8 @@ def validate_backbone_sites(upstream: str, downstream: str) -> None:
     if upstream == downstream:
         warnings.warn(
             f"Upstream and downstream sites are identical ('{upstream}'). "
-            "This will prevent directional cloning.",
+            "This will prevent directional cloning into a linearized backbone."
+            "If you intend to circularize the fragment(s), this is fine.",
             stacklevel=2
         )
     if upstream == downstream_rc:
@@ -197,7 +198,7 @@ def find_split_position(
     n_frags = estimate_n_fragments(len(seq))
 
     if n_frags == 1:
-        fidelity = predict_fidelity([upstream, downstream], ligation_data)
+        fidelity = predict_fidelity(list(dict.fromkeys([upstream, downstream])), ligation_data)
         
         return ([], [], fidelity)
     
@@ -227,7 +228,7 @@ def find_split_position(
                 ggsite = seq[p:p + OVERHANG_SIZE]
                 if ggsite in disallowed_sites:
                     continue
-                all_sites = [upstream] + placed_sites + [ggsite] + [downstream]
+                all_sites = list(dict.fromkeys([upstream] + placed_sites + [ggsite] + [downstream]))
                 fidelity = predict_fidelity(all_sites, ligation_data)
                 gap = p if j == 0 else p - placed_positions[-1]
                 deviation = abs(gap - ideal_gap) / ideal_gap
@@ -242,7 +243,7 @@ def find_split_position(
             placed_positions.append(best_p)
             placed_sites.append(best_site)
 
-        all_sites = [upstream] + placed_sites + [downstream]
+        all_sites = list(dict.fromkeys([upstream] + placed_sites + [downstream]))
         final_fidelity = predict_fidelity(all_sites, ligation_data)
         return placed_positions, placed_sites, final_fidelity
 
