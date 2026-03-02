@@ -131,7 +131,13 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Analyze conservation of an MSA in .a3m format, "
-                    "following the fixed residue selection approach from the TEV protease paper."
+                    "following the fixed residue selection approach from the TEV protease paper.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+    Examples:
+    python analyze_conservation.py mmseqs_msa.a3m
+    python analyze_conservation.py mmseqs_msa.a3m --output results/conservation.txt
+        """
     )
     parser.add_argument(
         "a3m_file", type=str,
