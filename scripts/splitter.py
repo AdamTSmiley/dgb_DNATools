@@ -311,7 +311,7 @@ def format_fragment_ranges(seq_len: int, positions: list) -> str:
     boundaries = [0] + positions + [seq_len]
     ranges = []
     for i in range(len(boundaries) - 1):
-        start = boundaries[i] + 1  # 1-indexed
+        start = boundaries[i] + 1 if i == 0 else boundaries[i]  # 1-indexed
         end = boundaries[i+1] + (OVERHANG_SIZE if i < len(positions) else 0)
         ranges.append(f"{start}-{end}")
     return ' | '.join(ranges)
