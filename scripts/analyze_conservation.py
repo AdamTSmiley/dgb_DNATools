@@ -113,7 +113,7 @@ def write_output(results: list[dict], fixed: dict, ranked: list[dict], out_path:
             with open(f'{base}_{pct}.txt', 'w') as f:
                 f.write(', '.join(str(p) for p in sorted(fixed[pct])))
     if csv:
-        csv_path = os.path.splitext(out_path)[0] + "_conservation.csv"
+        csv_path = os.path.splitext(out_path)[0] + ".csv"
         with open(csv_path, 'w') as f:
             f.write("position,query_aa,top_aa,conservation_score,n_seqs\n")
             for r in sorted(ranked, key=lambda x: x['position']):
