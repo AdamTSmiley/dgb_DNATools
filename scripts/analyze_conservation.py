@@ -111,7 +111,7 @@ def write_output(results: list[dict], fixed: dict, ranked: list[dict], out_path:
         base = os.path.splitext(out_path)[0]
         for pct in [30, 50, 70]:
             with open(f'{base}_{pct}.txt', 'w') as f:
-                f.write(', '.join(str(p) for p in sorted(fixed[pct])))
+                f.write(' '.join(str(p) for p in sorted(fixed[pct])))
     if csv:
         csv_path = os.path.splitext(out_path)[0] + ".csv"
         with open(csv_path, 'w') as f:
@@ -146,7 +146,7 @@ def main(args: argparse.Namespace):
         print(f"\nSplits results written to: {splits_example}")
     
     if csv:
-        csv_path = os.path.splitext(out_path)[0] + "_conservation.csv"
+        csv_path = os.path.splitext(out_path)[0] + ".csv"
         print(f"\nCSV results written to: {csv_path}")
 
 
