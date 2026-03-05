@@ -158,7 +158,7 @@ if __name__ == "__main__":
         epilog="""
     Examples:
     python analyze_conservation.py mmseqs_msa.a3m
-    python analyze_conservation.py mmseqs_msa.a3m --output results/conservation.txt --splits True. --csv True
+    python analyze_conservation.py mmseqs_msa.a3m --output results/conservation.txt --splits True --csv True
         """
     )
     parser.add_argument(
