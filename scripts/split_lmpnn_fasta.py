@@ -50,7 +50,7 @@ def main(args):
 
         out_path = os.path.join(args.outdir, f"{args.basename}_{seq_id}.fasta")
         with open(out_path, "w") as f:
-            f.write(f">{header}\n{seq.split(':')[0]}\n")
+            f.write(f">{args.basename}_{seq_id}\n{seq.split(':')[0]}\n")
         written += 1
 
     print(f"\nDone. {written} file(s) written to '{args.outdir}/'  |  {skipped} record(s) skipped.")
