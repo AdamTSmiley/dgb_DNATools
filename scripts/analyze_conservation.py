@@ -88,7 +88,7 @@ def select_fixed_positions(results: list[dict], percentiles: list[int] = [30, 50
     return fixed, ranked
 
 
-def write_output(results: list[dict], fixed: dict, ranked: list[dict], out_path: str, splits: bool):
+def write_output(results: list[dict], fixed: dict, ranked: list[dict], out_path: str, splits: bool, csv: bool):
     with open(out_path, 'w') as f:
         f.write("# Conservation Analysis\n")
         f.write(f"# Total positions: {len(results)}\n")
@@ -112,6 +112,12 @@ def write_output(results: list[dict], fixed: dict, ranked: list[dict], out_path:
         for pct in [30, 50, 70]:
             with open(f'{base}_{pct}.txt', 'w') as f:
                 f.write(', '.join(str(p) for p in sorted(fixed[pct])))
+    if csv:
+        csv_path = os.path.splitext(out_path)[0] + "_conservation.csv"
+        with open(csv_path, 'w') as f:
+            f.write("position,query_aa,top_aa,conservation_score,n_seqs\n")
+            for r in sorted(ranked, key=lambda x: x['position']):
+                f.write(f"{r['position']},{r['query_aa']},{r['top_aa']},{r['top_freq']:.4f},{r['n_seqs']}\n")
 
 
 def main(args: argparse.Namespace):
@@ -131,8 +137,17 @@ def main(args: argparse.Namespace):
 
     out_path = args.output or os.path.splitext(args.a3m_file)[0] + "_conservation.txt"
     splits = args.splits
-    write_output(results, fixed, ranked, out_path, splits)
+    csv = args.csv
+    write_output(results, fixed, ranked, out_path, splits, csv)
     print(f"\nResults written to: {out_path}")
+
+    if splits:
+        splits_example = os.path.splitext(out_path)[0] + "_##.txt"
+        print(f"\nSplits results written to: {splits_example}")
+    
+    if csv:
+        csv_path = os.path.splitext(out_path)[0] + "_conservation.csv"
+        print(f"\nCSV results written to: {csv_path}")
 
 
 if __name__ == "__main__":
@@ -143,7 +158,7 @@ if __name__ == "__main__":
         epilog="""
     Examples:
     python analyze_conservation.py mmseqs_msa.a3m
-    python analyze_conservation.py mmseqs_msa.a3m --output results/conservation.txt --splits True
+    python analyze_conservation.py mmseqs_msa.a3m --output results/conservation.txt --splits True. --csv True
         """
     )
     parser.add_argument(
@@ -157,6 +172,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--splits", type=bool, default=False,
         help="Set True to split conserved positions out to unique files"
+    )
+    parser.add_argument(
+        "--csv", type=bool, default=False,
+        help="Set True to get a csv of conservation of each position across the protein sequence"
     )
     args = parser.parse_args()
     main(args)
