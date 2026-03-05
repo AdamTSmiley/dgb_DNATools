@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# mmseqs_cluster.sh
+# cluster_top_reps.sh
 # Self-search to compute mean pairwise identity, cluster at that threshold,
 # then output a FASTA of representatives from the top 1-3 largest clusters.
 #
-# Usage: bash mmseqs_cluster.sh input.fasta output.fasta
+# Usage: bash cluster_top_reps.sh input.fasta output.fasta
 
 set -euo pipefail
 
@@ -56,24 +56,18 @@ mmseqs easy-cluster "$INPUT" "$CLUSTER_PREFIX" "$TMP" \
 # ── Step 4: Extract representatives from top clusters ─────────────────────────
 echo "[4/4] Extracting top representatives..."
 
-# Rank clusters by member count, get top 3 representative IDs
-TOP_REPS=$(cut -f1 "$TSV" | sort | uniq -c | sort -rn | head -3 | awk '{print $2}')
-N_REPS=$(echo "$TOP_REPS" | wc -l | tr -d ' ')
+# Rank clusters by member count, write top 3 representative IDs to a temp file
+TOP_REPS_FILE="$WORKDIR/top_reps.txt"
+cut -f1 "$TSV" | sort | uniq -c | sort -rn | head -3 | awk '{print $2}' > "$TOP_REPS_FILE"
+N_REPS=$(wc -l < "$TOP_REPS_FILE" | tr -d ' ')
 echo "      Found $N_REPS cluster(s) — extracting representative(s)..."
 
-# Pull matching sequences directly from rep_seq.fasta (clean original headers)
-awk -v ids="$TOP_REPS" '
-BEGIN {
-    split(ids, arr, "\n")
-    for (i in arr) wanted[arr[i]] = 1
-}
-/^>/ {
-    id = substr($0, 2)
-    sub(/ .*/, "", id)
-    capture = (id in wanted)
-}
+# Pull matching sequences from rep_seq.fasta using the IDs file
+awk '
+NR==FNR { wanted[$1]=1; next }
+/^>/ { id=substr($0,2); sub(/ .*/,"",id); capture=(id in wanted) }
 { if (capture) print }
-' "$REP_SEQS" > "$OUTPUT"
+' "$TOP_REPS_FILE" "$REP_SEQS" > "$OUTPUT"
 
 # Confirm output
 NSEQ=$(grep -c "^>" "$OUTPUT" || true)
