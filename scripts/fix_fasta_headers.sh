@@ -5,8 +5,8 @@
 DIR="${1:-.}"
 
 find "$DIR" -name "*.fasta" | while read -r fasta; do
-    if grep -q '^>"' "$fasta" 2>/dev/null || grep -q "^>[^|]" "$fasta" 2>/dev/null; then
-        sed -i 's/^>\(.*\)/>protein|name=\1/' "$fasta"
+    if grep -q "^>[^|]" "$fasta" 2>/dev/null; then
+        sed -i '' 's/^>\(.*\)/>protein|name=\1/' "$fasta"
         echo "Fixed: $fasta"
     fi
 done
